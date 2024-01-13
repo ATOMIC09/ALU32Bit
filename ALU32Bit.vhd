@@ -2,13 +2,12 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
-use ieee.std_logic_misc.xor_reduce;
+use ieee.std_logic_misc.nor_reduce;
 
 entity ALU32Bit is
     port (
         A, B : in std_logic_vector(31 downto 0);
-        OPERATION : in std_logic_vector(1 downto 0);
-        Ainvert, Binvert : in std_logic;
+        ALUControlLine : in std_logic_vector(3 downto 0);
         ZERO, OVERFLOW, CARRYOUT : out std_logic;
         RESULT_OUT : out std_logic_vector(31 downto 0)
     );
@@ -22,20 +21,20 @@ architecture Structural of ALU32Bit is
             result, set, overflow, c_out : out std_logic
         );
     end component;
-    signal carryout_inside : std_logic_vector(31 downto 0);
+    signal carryout_inside : std_logic_vector(30 downto 0);
     signal LESS : std_logic;
-    signal RESULT_TO_XOR : std_logic_vector(31 downto 0);
+    signal RESULT_TO_NOR : std_logic_vector(31 downto 0);
 begin
     ALU0 : OneBitALU
     port map(
         a_in => A(0),
         b_in => B(0),
         less => LESS,
-        invert_a => Ainvert,
-        invert_b => Binvert,
-        c_in => Binvert,
-        operation => OPERATION,
-        result => RESULT_TO_XOR(0),
+        invert_a => ALUControlLine(3),
+        invert_b => ALUControlLine(2),
+        c_in => ALUControlLine(2),
+        operation => ALUControlLine(1 DOWNTO 0),
+        result => RESULT_TO_NOR(0),
         set => open,
         overflow => open,
         c_out => carryout_inside(0)
@@ -47,11 +46,11 @@ begin
             a_in => A(i),
             b_in => B(i),
             less => '0',
-            invert_a => Ainvert,
-            invert_b => Binvert,
+            invert_a => ALUControlLine(3),
+            invert_b => ALUControlLine(2),
             c_in => carryout_inside(i-1),
-            operation => OPERATION,
-            result => RESULT_TO_XOR(i),
+            operation => ALUControlLine(1 DOWNTO 0),
+            result => RESULT_TO_NOR(i),
             set => open,
             overflow => open,
             c_out => carryout_inside(i)
@@ -63,18 +62,17 @@ begin
         a_in => A(31),
         b_in => B(31),
         less => '0',
-        invert_a => Ainvert,
-        invert_b => Binvert,
+        invert_a => ALUControlLine(3),
+        invert_b => ALUControlLine(2),
         c_in => carryout_inside(30),
-        operation => OPERATION,
-        result => RESULT_TO_XOR(31),
+        operation => ALUControlLine(1 DOWNTO 0),
+        result => RESULT_TO_NOR(31),
         set => LESS,
         overflow => OVERFLOW,
-        c_out => carryout_inside(31)
+        c_out => CARRYOUT
     );
 
-    -- XOR all bit in RESULT_TO_XOR
-    ZERO <= not xor_reduce(RESULT_TO_XOR);
-    CARRYOUT <= carryout_inside(31);
-    RESULT_OUT <= RESULT_TO_XOR;
+    -- NOR all bit in RESULT_TO_NOR
+    ZERO <= nor_reduce(RESULT_TO_NOR);
+    RESULT_OUT <= RESULT_TO_NOR;
 end architecture Structural;
